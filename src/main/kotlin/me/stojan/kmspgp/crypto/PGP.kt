@@ -18,6 +18,7 @@ import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.kms.KmsClient
 import software.amazon.awssdk.services.kms.model.*
 import java.io.ByteArrayOutputStream
+import java.io.FilterOutputStream
 import java.io.OutputStream
 import java.math.BigInteger
 import java.time.Duration
@@ -56,11 +57,11 @@ object PGP {
         when {
             contains(SigningAlgorithmSpec.ECDSA_SHA_384) ||
                     contains(SigningAlgorithmSpec.RSASSA_PKCS1_V1_5_SHA_384) ->
-                SHA384Digest()
+                SHA256Digest()
 
             contains(SigningAlgorithmSpec.ECDSA_SHA_512) ||
                     contains(SigningAlgorithmSpec.RSASSA_PKCS1_V1_5_SHA_512) ->
-                SHA512Digest()
+                SHA256Digest()
 
             contains(SigningAlgorithmSpec.ECDSA_SHA_256) ||
                     contains(SigningAlgorithmSpec.RSASSA_PKCS1_V1_5_SHA_256) ->
@@ -167,7 +168,7 @@ object PGP {
         signFn: (ExtendedDigest, ByteArray) -> ByteArray,
     ) = signPGP(
         // https://datatracker.ietf.org/doc/html/rfc4880#section-5.2.1
-        signatureType = 0x00,
+        signatureType = 0x01,
         pub = pub,
         digest = digest,
         signFn = signFn,
@@ -198,6 +199,35 @@ object PGP {
         val signer = PGPContentSignerBuilder { _, _ ->
             object : PGPContentSigner {
                 private val digestStream: OutputStream = DigestOutputStream(digest)
+                
+                private val outStream: OutputStream = if (signatureType == 0x01) {
+                    object : java.io.FilterOutputStream(digestStream) {
+                        private var lastWasCr = false
+
+                        override fun write(b: Int) {
+                            val isCr = b == '\r'.code
+                            val isLf = b == '\n'.code
+
+                            if (isLf) {
+                                if (!lastWasCr) {
+                                    out.write('\r'.code)
+                                }
+                                out.write('\n'.code)
+                            } else {
+                                out.write(b)
+                            }
+                            lastWasCr = isCr
+                        }
+
+                        override fun write(b: ByteArray, off: Int, len: Int) {
+                            for (i in off until off + len) {
+                                write(b[i].toInt())
+                            }
+                        }
+                    }
+                } else {
+                    digestStream
+                }
 
                 private val digestValue: ByteArray by lazy {
                     ByteArray(digest.digestSize).apply { digest.doFinal(this, 0) }
@@ -207,7 +237,7 @@ object PGP {
                     signFn(digest, digestValue)
                 }
 
-                override fun getOutputStream(): OutputStream = digestStream
+                override fun getOutputStream(): OutputStream = outStream
 
                 override fun getSignature(): ByteArray = signatureValue
 
