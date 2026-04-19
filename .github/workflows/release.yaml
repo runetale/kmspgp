@@ -4,6 +4,9 @@ on:
   release:
     types:
       - published
+  push:
+    branches:
+      - test
   workflow_dispatch:
     inputs:
       tag:
