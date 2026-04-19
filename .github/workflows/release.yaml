@@ -5,6 +5,10 @@ on:
     types:
       - published
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -17,7 +21,7 @@ jobs:
           cache: gradle
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_RELEASE_NAME: ${{ github.event.release.tag_name }}
+          GITHUB_RELEASE_NAME: ${{ inputs.tag }}
         run: |
           set -x
 
@@ -37,3 +41,13 @@ jobs:
             "build/distributions/kmspgp-$GITHUB_RELEASE_NAME.zip" \
             "build/libs/kmspgp-$GITHUB_RELEASE_NAME.jar" \
             "build/kmspgp-$GITHUB_RELEASE_NAME-linux-amd64"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: kmspgp-release-artifacts
+          path: |
+            build/distributions/kmspgp-$GITHUB_RELEASE_NAME.zip 
+            build/libs/kmspgp-$GITHUB_RELEASE_NAME.jar 
+            build/kmspgp-$GITHUB_RELEASE_NAME-linux-amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RELEASE_NAME: ${{ inputs.tag }}
