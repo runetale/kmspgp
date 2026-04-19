@@ -4,9 +4,6 @@ on:
   release:
     types:
       - published
-  push:
-    branches:
-      - test
   workflow_dispatch:
     inputs:
       tag:
@@ -40,10 +37,6 @@ jobs:
             -jar "libs/kmspgp-$GITHUB_RELEASE_NAME.jar" \
             "kmspgp-$GITHUB_RELEASE_NAME-linux-amd64"
 
-          gh release upload "$GITHUB_RELEASE_NAME" \
-            "build/distributions/kmspgp-$GITHUB_RELEASE_NAME.zip" \
-            "build/libs/kmspgp-$GITHUB_RELEASE_NAME.jar" \
-            "build/kmspgp-$GITHUB_RELEASE_NAME-linux-amd64"
       - uses: actions/upload-artifact@v6
         with:
           name: kmspgp-release-artifacts
